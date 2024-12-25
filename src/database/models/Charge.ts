@@ -2,12 +2,14 @@ import { Model, DataTypes } from 'sequelize';
 import sequelize from '../index';
 
 class Charge extends Model {
-  public id!: number;
-  public clientId!: string;
-  public amount!: number;
-  public dueDate!: Date;
-  public status!: string;
-  public pixTxid!: string;
+  public id!: string;
+  public name!: string;
+  public whatsapp!: string;
+  public service!: string;
+  public value!: number;
+  public billingDay!: number;
+  public recurrence!: string;
+  public lastBillingDate?: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -15,31 +17,44 @@ class Charge extends Model {
 Charge.init(
   {
     id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
+      type: DataTypes.STRING(50),
       primaryKey: true,
     },
-    clientId: {
-      type: DataTypes.STRING(50),
+    name: {
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
-    amount: {
+    whatsapp: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+    },
+    service: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+    },
+    value: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
     },
-    dueDate: {
-      type: DataTypes.DATE,
+    billingDay: {
+      type: DataTypes.INTEGER,
       allowNull: false,
+      validate: {
+        min: 1,
+        max: 31
+      }
     },
-    status: {
+    recurrence: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      defaultValue: 'pending',
+      validate: {
+        isIn: [['monthly', '3_months', '6_months']]
+      }
     },
-    pixTxid: {
-      type: DataTypes.STRING(50),
+    lastBillingDate: {
+      type: DataTypes.STRING,
       allowNull: true,
-    },
+    }
   },
   {
     sequelize,
