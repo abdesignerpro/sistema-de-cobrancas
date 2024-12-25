@@ -47,78 +47,115 @@ async function checkScheduledCharges() {
     console.log('\n=== Verificando cobranças agendadas ===');
     console.log('Data atual:', today.toLocaleString());
 
-    const charges = await Charge.findAll();
-    console.log('Total de cobranças encontradas:', charges.length);
-
-    const config = await Config.findAll();
-    console.log('Configurações encontradas:', config.length);
-    
+    // Busca configurações
+    const configs = await Config.findAll();
     const configObject: { [key: string]: string } = {};
-    config.forEach(c => {
+    configs.forEach(c => {
       configObject[c.key] = c.value;
     });
+    
+    console.log('Configurações:', configObject);
+
+    // Verifica se o envio automático está ativado
+    if (configObject.automaticSendingEnabled !== 'true') {
+      console.log('Envio automático desativado');
+      return;
+    }
+
+    // Verifica se é hora de enviar
+    const sendTime = configObject.sendTime || '09:00';
+    const [sendHour, sendMinute] = sendTime.split(':').map(Number);
+    const currentHour = today.getHours();
+    const currentMinute = today.getMinutes();
+
+    console.log('Horário configurado:', sendHour + ':' + sendMinute);
+    console.log('Horário atual:', currentHour + ':' + currentMinute);
+
+    if (currentHour !== sendHour || currentMinute !== sendMinute) {
+      console.log('Fora do horário de envio');
+      return;
+    }
+
+    // Busca cobranças
+    const charges = await Charge.findAll();
+    console.log('Total de cobranças:', charges.length);
+
+    // Dias antes do vencimento
+    const daysBeforeDue = parseInt(configObject.daysBeforeDue || '1');
+    console.log('Dias antes do vencimento:', daysBeforeDue);
 
     for (const charge of charges) {
-      console.log('\nVerificando cobrança:', {
-        id: charge.id,
-        name: charge.name,
-        billingDay: charge.billingDay,
-        lastBillingDate: charge.lastBillingDate
-      });
+      console.log('\nVerificando cobrança:', charge.name);
 
-      // Verifica se é dia de cobrança
-      if (charge.billingDay === today.getDate()) {
-        console.log('É dia de cobrança para', charge.name);
-        
-        // Verifica se já foi cobrado hoje
+      // Calcula a data do próximo vencimento
+      const nextDueDate = new Date();
+      nextDueDate.setDate(charge.billingDay);
+      if (nextDueDate < today) {
+        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      }
+
+      // Calcula a data de envio (dias antes do vencimento)
+      const sendDate = new Date(nextDueDate);
+      sendDate.setDate(sendDate.getDate() - daysBeforeDue);
+
+      console.log('Data de vencimento:', nextDueDate.toLocaleDateString());
+      console.log('Data de envio:', sendDate.toLocaleDateString());
+      console.log('Data atual:', today.toLocaleDateString());
+
+      // Verifica se é dia de enviar
+      if (
+        sendDate.getDate() === today.getDate() &&
+        sendDate.getMonth() === today.getMonth() &&
+        sendDate.getFullYear() === today.getFullYear()
+      ) {
+        console.log('É dia de enviar cobrança');
+
+        // Verifica se já foi enviado hoje
         const lastBillingDate = charge.lastBillingDate ? new Date(charge.lastBillingDate) : null;
-        console.log('Última cobrança:', lastBillingDate?.toLocaleString() || 'Nunca');
-        
-        if (!lastBillingDate || lastBillingDate.getMonth() !== today.getMonth()) {
-          console.log('Iniciando envio de cobrança...');
-          
+        if (!lastBillingDate || lastBillingDate.toLocaleDateString() !== today.toLocaleDateString()) {
           try {
+            // Formata a mensagem
+            const messageTemplate = configObject.messageTemplate || '';
             const formattedValue = Number(charge.value).toFixed(2);
-            console.log('Valor formatado:', formattedValue);
-            
-            const message = `Olá ${charge.name}, passando para lembrar sobre o pagamento do serviço: ${charge.service}. Valor: R$ ${formattedValue}`;
-            console.log('Mensagem:', message);
-            
-            const phoneNumber = charge.whatsapp.replace(/\D/g, '');
-            console.log('Telefone:', phoneNumber);
-            
+            const message = messageTemplate
+              .replace(/{nome}/g, charge.name)
+              .replace(/{servico}/g, charge.service)
+              .replace(/{valor}/g, formattedValue)
+              .replace(/{dias}/g, charge.billingDay.toString());
+
+            console.log('Mensagem formatada:', message);
+
+            // Envia a mensagem
             await sendWhatsAppMessage(
-              phoneNumber,
+              charge.whatsapp.replace(/\D/g, ''),
               message,
               configObject
             );
 
-            // Atualiza a data da última cobrança
+            // Atualiza a data do último envio
             await charge.update({
               lastBillingDate: today.toISOString().split('T')[0]
             });
 
-            console.log('Cobrança enviada com sucesso para', charge.name);
+            console.log('Cobrança enviada com sucesso');
           } catch (error) {
-            console.error(`Erro ao enviar cobrança para ${charge.name}:`, error);
+            console.error('Erro ao enviar cobrança:', error);
           }
         } else {
-          console.log('Cobrança já enviada este mês para', charge.name);
+          console.log('Já foi enviado hoje');
         }
       } else {
-        console.log('Não é dia de cobrança para', charge.name);
+        console.log('Não é dia de enviar');
       }
     }
-    
-    console.log('\n=== Verificação de cobranças concluída ===\n');
   } catch (error) {
     console.error('Erro ao verificar cobranças agendadas:', error);
   }
 }
 
-// Agenda a verificação para rodar a cada hora
-cron.schedule('0 * * * *', () => {
-  console.log('\n=== Iniciando verificação agendada de cobranças ===');
+// Agenda a verificação para rodar a cada minuto
+cron.schedule('* * * * *', () => {
+  console.log('\n=== Iniciando verificação agendada ===');
   checkScheduledCharges();
 });
 
