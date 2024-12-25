@@ -6,12 +6,27 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DB_HOST=postgres # Nome do serviço do PostgreSQL no EasyPanel
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+      - DB_HOST=postgres
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=cobrancas_db
       - DB_PORT=5432
       - NODE_ENV=production
     depends_on:
       - postgres
     restart: unless-stopped
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=cobrancas_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
