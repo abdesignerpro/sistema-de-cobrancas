@@ -21,6 +21,7 @@ services:
       DB_NAME: cobrancas_db
       DB_PORT: 5432
       NODE_ENV: production
+      PORT: 3000
       API_URL: https://evolution.abdesignerpro.com.br
       INSTANCE_NAME: anderson
       API_KEY: E62B2FC8FEB2-48A8-8AAC-38C637367B96
