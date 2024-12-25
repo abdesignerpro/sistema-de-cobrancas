@@ -71,30 +71,73 @@ app.get('/charges', async (req, res) => {
 
 app.post('/charges', async (req, res) => {
   try {
+    console.log('Recebendo requisição POST /charges:', req.body);
+
     // Se for um array, cria/atualiza múltiplas cobranças
     if (Array.isArray(req.body)) {
       const charges = await Promise.all(
         req.body.map(async (charge) => {
-          if (charge.id) {
-            const [, updated] = await Charge.upsert(charge);
-            return updated;
-          } else {
-            return await Charge.create(charge);
+          try {
+            if (!charge.id) {
+              console.error('Erro: ID não fornecido para a cobrança:', charge);
+              return null;
+            }
+
+            const [updatedCharge, created] = await Charge.upsert({
+              id: charge.id,
+              name: charge.name,
+              whatsapp: charge.whatsapp,
+              service: charge.service,
+              value: charge.value,
+              billingDay: charge.billingDay,
+              recurrence: charge.recurrence,
+              lastBillingDate: charge.lastBillingDate
+            });
+
+            console.log(
+              created ? 'Cobrança criada:' : 'Cobrança atualizada:',
+              updatedCharge.toJSON()
+            );
+
+            return updatedCharge;
+          } catch (error) {
+            console.error('Erro ao processar cobrança:', charge, error);
+            return null;
           }
         })
       );
-      res.status(201).json(charges);
+
+      // Remove os nulls do array
+      const validCharges = charges.filter(charge => charge !== null);
+      console.log('Cobranças processadas:', validCharges);
+
+      res.status(201).json(validCharges);
     } 
     // Se for um objeto único, cria/atualiza uma única cobrança
     else {
       const charge = req.body;
-      if (charge.id) {
-        const [updated] = await Charge.upsert(charge);
-        res.status(200).json(updated);
-      } else {
-        const newCharge = await Charge.create(charge);
-        res.status(201).json(newCharge);
+      
+      if (!charge.id) {
+        throw new Error('ID não fornecido para a cobrança');
       }
+
+      const [updatedCharge, created] = await Charge.upsert({
+        id: charge.id,
+        name: charge.name,
+        whatsapp: charge.whatsapp,
+        service: charge.service,
+        value: charge.value,
+        billingDay: charge.billingDay,
+        recurrence: charge.recurrence,
+        lastBillingDate: charge.lastBillingDate
+      });
+
+      console.log(
+        created ? 'Cobrança criada:' : 'Cobrança atualizada:',
+        updatedCharge.toJSON()
+      );
+
+      res.status(created ? 201 : 200).json(updatedCharge);
     }
   } catch (error) {
     console.error('Erro ao criar/atualizar cobrança:', error);
@@ -106,10 +149,10 @@ app.put('/charges/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const [updated] = await Charge.update(req.body, {
-      where: { id: parseInt(id) }
+      where: { id }
     });
     if (updated) {
-      const updatedCharge = await Charge.findByPk(parseInt(id));
+      const updatedCharge = await Charge.findByPk(id);
       res.json(updatedCharge);
     } else {
       res.status(404).json({ error: 'Cobrança não encontrada' });
@@ -124,7 +167,7 @@ app.delete('/charges/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await Charge.destroy({
-      where: { id: parseInt(id) }
+      where: { id }
     });
     if (deleted) {
       res.status(204).send();
