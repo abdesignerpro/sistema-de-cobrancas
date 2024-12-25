@@ -15,6 +15,11 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Rota raiz
+app.get('/', (req, res) => {
+  res.json({ message: 'API do Sistema de Cobranças está funcionando!' });
+});
+
 // Rotas
 app.get('/config', async (req, res) => {
   try {
