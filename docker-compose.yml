@@ -1,32 +1,43 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DB_HOST=postgres
-      - DB_USER=postgres
-      - DB_PASS=postgres
-      - DB_NAME=cobrancas_db
-      - DB_PORT=5432
-      - NODE_ENV=production
-    depends_on:
-      - postgres
-    restart: unless-stopped
-
   postgres:
     image: postgres:latest
-    ports:
-      - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=cobrancas_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cobrancas_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  backend:
+    build: .
+    environment:
+      DB_HOST: sistema-de-cobrancas_postgres
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: cobrancas_db
+      DB_PORT: 5432
+      NODE_ENV: production
+      API_URL: https://evolution.abdesignerpro.com.br
+      INSTANCE_NAME: anderson
+      API_KEY: E62B2FC8FEB2-48A8-8AAC-38C637367B96
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
     restart: unless-stopped
 
 volumes:
   postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
