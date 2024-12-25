@@ -1,9 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 import initializeDatabase from './database/init';
 import Charge from './database/models/Charge';
 import Config from './database/models/Config';
+import axios from 'axios';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -18,6 +20,73 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+// Função para enviar mensagem via WhatsApp
+async function sendWhatsAppMessage(phoneNumber: string, message: string, apiConfig: any) {
+  try {
+    const payload = {
+      number: phoneNumber,
+      message: message,
+      ...apiConfig
+    };
+
+    const response = await axios.post('https://api.z-api.io/instances/3C6938B52A93B3378D0D5834A44DC873/token/A8B5DF14C35D80D9F9A4967B/send-text', payload);
+    
+    console.log('Mensagem enviada com sucesso:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao enviar mensagem:', error);
+    throw error;
+  }
+}
+
+// Função para verificar cobranças agendadas
+async function checkScheduledCharges() {
+  try {
+    const today = new Date();
+    const charges = await Charge.findAll();
+    const config = await Config.findAll();
+    
+    const configObject: { [key: string]: string } = {};
+    config.forEach(c => {
+      configObject[c.key] = c.value;
+    });
+
+    for (const charge of charges) {
+      // Verifica se é dia de cobrança
+      if (charge.billingDay === today.getDate()) {
+        // Verifica se já foi cobrado hoje
+        const lastBillingDate = charge.lastBillingDate ? new Date(charge.lastBillingDate) : null;
+        if (!lastBillingDate || lastBillingDate.getMonth() !== today.getMonth()) {
+          try {
+            const formattedValue = Number(charge.value).toFixed(2);
+            const message = `Olá ${charge.name}, passando para lembrar sobre o pagamento do serviço: ${charge.service}. Valor: R$ ${formattedValue}`;
+            
+            await sendWhatsAppMessage(
+              charge.whatsapp.replace(/\D/g, ''),
+              message,
+              configObject
+            );
+
+            // Atualiza a data da última cobrança
+            await charge.update({
+              lastBillingDate: today.toISOString().split('T')[0]
+            });
+
+            console.log(`Cobrança enviada para ${charge.name}`);
+          } catch (error) {
+            console.error(`Erro ao enviar cobrança para ${charge.name}:`, error);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao verificar cobranças agendadas:', error);
+  }
+}
+
+// Agenda a verificação para rodar a cada hora
+cron.schedule('0 * * * *', checkScheduledCharges);
 
 // Rota raiz
 app.get('/', (req, res) => {
@@ -83,13 +152,23 @@ app.post('/charges', async (req, res) => {
               return null;
             }
 
+            // Converte o valor para número
+            const value = typeof charge.value === 'string' 
+              ? parseFloat(charge.value) 
+              : charge.value;
+
+            // Converte o billingDay para número
+            const billingDay = typeof charge.billingDay === 'string'
+              ? parseInt(charge.billingDay)
+              : charge.billingDay;
+
             const [updatedCharge, created] = await Charge.upsert({
               id: charge.id,
               name: charge.name,
               whatsapp: charge.whatsapp,
               service: charge.service,
-              value: charge.value,
-              billingDay: charge.billingDay,
+              value: value,
+              billingDay: billingDay,
               recurrence: charge.recurrence,
               lastBillingDate: charge.lastBillingDate
             });
@@ -121,13 +200,23 @@ app.post('/charges', async (req, res) => {
         throw new Error('ID não fornecido para a cobrança');
       }
 
+      // Converte o valor para número
+      const value = typeof charge.value === 'string' 
+        ? parseFloat(charge.value) 
+        : charge.value;
+
+      // Converte o billingDay para número
+      const billingDay = typeof charge.billingDay === 'string'
+        ? parseInt(charge.billingDay)
+        : charge.billingDay;
+
       const [updatedCharge, created] = await Charge.upsert({
         id: charge.id,
         name: charge.name,
         whatsapp: charge.whatsapp,
         service: charge.service,
-        value: charge.value,
-        billingDay: charge.billingDay,
+        value: value,
+        billingDay: billingDay,
         recurrence: charge.recurrence,
         lastBillingDate: charge.lastBillingDate
       });
@@ -185,6 +274,8 @@ initializeDatabase()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
+      // Executa a verificação de cobranças assim que o servidor iniciar
+      checkScheduledCharges();
     });
   })
   .catch((error) => {
