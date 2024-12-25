@@ -44,8 +44,14 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, apiConf
 async function checkScheduledCharges() {
   try {
     const today = new Date();
+    console.log('\n=== Verificando cobranças agendadas ===');
+    console.log('Data atual:', today.toLocaleString());
+
     const charges = await Charge.findAll();
+    console.log('Total de cobranças encontradas:', charges.length);
+
     const config = await Config.findAll();
+    console.log('Configurações encontradas:', config.length);
     
     const configObject: { [key: string]: string } = {};
     config.forEach(c => {
@@ -53,17 +59,36 @@ async function checkScheduledCharges() {
     });
 
     for (const charge of charges) {
+      console.log('\nVerificando cobrança:', {
+        id: charge.id,
+        name: charge.name,
+        billingDay: charge.billingDay,
+        lastBillingDate: charge.lastBillingDate
+      });
+
       // Verifica se é dia de cobrança
       if (charge.billingDay === today.getDate()) {
+        console.log('É dia de cobrança para', charge.name);
+        
         // Verifica se já foi cobrado hoje
         const lastBillingDate = charge.lastBillingDate ? new Date(charge.lastBillingDate) : null;
+        console.log('Última cobrança:', lastBillingDate?.toLocaleString() || 'Nunca');
+        
         if (!lastBillingDate || lastBillingDate.getMonth() !== today.getMonth()) {
+          console.log('Iniciando envio de cobrança...');
+          
           try {
             const formattedValue = Number(charge.value).toFixed(2);
+            console.log('Valor formatado:', formattedValue);
+            
             const message = `Olá ${charge.name}, passando para lembrar sobre o pagamento do serviço: ${charge.service}. Valor: R$ ${formattedValue}`;
+            console.log('Mensagem:', message);
+            
+            const phoneNumber = charge.whatsapp.replace(/\D/g, '');
+            console.log('Telefone:', phoneNumber);
             
             await sendWhatsAppMessage(
-              charge.whatsapp.replace(/\D/g, ''),
+              phoneNumber,
               message,
               configObject
             );
@@ -73,20 +98,29 @@ async function checkScheduledCharges() {
               lastBillingDate: today.toISOString().split('T')[0]
             });
 
-            console.log(`Cobrança enviada para ${charge.name}`);
+            console.log('Cobrança enviada com sucesso para', charge.name);
           } catch (error) {
             console.error(`Erro ao enviar cobrança para ${charge.name}:`, error);
           }
+        } else {
+          console.log('Cobrança já enviada este mês para', charge.name);
         }
+      } else {
+        console.log('Não é dia de cobrança para', charge.name);
       }
     }
+    
+    console.log('\n=== Verificação de cobranças concluída ===\n');
   } catch (error) {
     console.error('Erro ao verificar cobranças agendadas:', error);
   }
 }
 
 // Agenda a verificação para rodar a cada hora
-cron.schedule('0 * * * *', checkScheduledCharges);
+cron.schedule('0 * * * *', () => {
+  console.log('\n=== Iniciando verificação agendada de cobranças ===');
+  checkScheduledCharges();
+});
 
 // Rota raiz
 app.get('/', (req, res) => {
