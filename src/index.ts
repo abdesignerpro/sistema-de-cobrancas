@@ -393,9 +393,16 @@ app.get('/pix/generate', async (req, res) => {
 // Função para gerar QR Code PIX
 app.get('/generate-pix-qr', async (req, res) => {
   try {
-    const { nome, cidade, valor, chave, txid } = req.query;
+    const { nome, cidade, valor, chave, txid } = req.query as PixQueryParams;
     
-    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${valor}&saida=qr&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`;
+    if (!nome || !cidade || !valor || !chave || !txid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetros inválidos'
+      });
+    }
+    
+    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=qr&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
     
     const response = await axios.get(qrCodeUrl, { responseType: 'arraybuffer' });
     const base64Image = Buffer.from(response.data).toString('base64');
