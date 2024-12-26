@@ -346,10 +346,19 @@ app.get('/pix/generate', async (req, res) => {
     const { nome, cidade, valor, chave, txid } = req.query;
     
     // Busca o código PIX
-    const pixResponse = await axios.get(`https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${valor}&saida=br&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`);
+    const pixResponse = await axios.get(`https://gerarqrcodepix.com.br/api/v1`, {
+      params: {
+        nome: String(nome),
+        cidade: String(cidade),
+        valor: String(valor),
+        saida: 'br',
+        chave: String(chave),
+        txid: String(txid)
+      }
+    });
     
     // Busca o QR Code
-    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${valor}&saida=qr&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`;
+    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${String(valor)}&saida=qr&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`;
     
     res.json({
       success: true,
