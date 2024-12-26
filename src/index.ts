@@ -26,11 +26,17 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, apiConf
   try {
     const payload = {
       number: phoneNumber,
-      message: message,
-      ...apiConfig
+      text: message,
+      apikey: apiConfig.apiKey,
+      delay: 2
     };
 
-    const response = await axios.post('https://api.z-api.io/instances/3C6938B52A93B3378D0D5834A44DC873/token/A8B5DF14C35D80D9F9A4967B/send-text', payload);
+    const response = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiConfig.apiKey
+      }
+    });
     
     console.log('Mensagem enviada com sucesso:', response.data);
     return response.data;
