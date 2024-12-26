@@ -340,6 +340,54 @@ app.delete('/charges/:id', async (req, res) => {
   }
 });
 
+// Endpoint para gerar código PIX e QR Code
+app.get('/pix/generate', async (req, res) => {
+  try {
+    const { nome, cidade, valor, chave, txid } = req.query;
+    
+    // Busca o código PIX
+    const pixResponse = await axios.get(`https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${valor}&saida=br&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`);
+    
+    // Busca o QR Code
+    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${valor}&saida=qr&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`;
+    
+    res.json({
+      success: true,
+      pixCode: pixResponse.data,
+      qrCodeUrl
+    });
+  } catch (error) {
+    console.error('Erro ao gerar PIX:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao gerar código PIX'
+    });
+  }
+});
+
+// Função para gerar QR Code PIX
+app.get('/generate-pix-qr', async (req, res) => {
+  try {
+    const { nome, cidade, valor, chave, txid } = req.query;
+    
+    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${valor}&saida=qr&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`;
+    
+    const response = await axios.get(qrCodeUrl, { responseType: 'arraybuffer' });
+    const base64Image = Buffer.from(response.data).toString('base64');
+    
+    res.json({ 
+      success: true, 
+      qrcode: `data:image/png;base64,${base64Image}` 
+    });
+  } catch (error) {
+    console.error('Erro ao gerar QR Code:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erro ao gerar QR Code PIX' 
+    });
+  }
+});
+
 // Inicializa o banco de dados e inicia o servidor
 initializeDatabase()
   .then(() => {
