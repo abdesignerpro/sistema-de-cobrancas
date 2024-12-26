@@ -381,10 +381,14 @@ app.get('/pix/generate', async (req, res) => {
     const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=qr&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
     console.log('URL do QR Code:', qrCodeUrl);
     
+    // Busca a imagem do QR Code e converte para base64
+    const qrCodeResponse = await axios.get(qrCodeUrl, { responseType: 'arraybuffer' });
+    const base64Image = Buffer.from(qrCodeResponse.data).toString('base64');
+    
     res.json({
       success: true,
-      pixCode: pixResponse.data,
-      qrCodeUrl
+      pixCode: pixResponse.data.brcode,
+      qrCodeUrl: `data:image/png;base64,${base64Image}`
     });
   } catch (error: any) {
     console.error('Erro ao gerar PIX:', error.message);
