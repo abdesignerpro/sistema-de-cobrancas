@@ -340,25 +340,41 @@ app.delete('/charges/:id', async (req, res) => {
   }
 });
 
+// Interface para os parâmetros da query
+interface PixQueryParams {
+  nome?: string;
+  cidade?: string;
+  valor?: string;
+  chave?: string;
+  txid?: string;
+}
+
 // Endpoint para gerar código PIX e QR Code
 app.get('/pix/generate', async (req, res) => {
   try {
-    const { nome, cidade, valor, chave, txid } = req.query;
+    const { nome, cidade, valor, chave, txid } = req.query as PixQueryParams;
+    
+    if (!nome || !cidade || !valor || !chave || !txid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetros inválidos'
+      });
+    }
     
     // Busca o código PIX
     const pixResponse = await axios.get(`https://gerarqrcodepix.com.br/api/v1`, {
       params: {
-        nome: String(nome),
-        cidade: String(cidade),
-        valor: String(valor),
+        nome,
+        cidade,
+        valor,
         saida: 'br',
-        chave: String(chave),
-        txid: String(txid)
+        chave,
+        txid
       }
     });
     
     // Busca o QR Code
-    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(String(nome))}&cidade=${encodeURIComponent(String(cidade))}&valor=${String(valor)}&saida=qr&chave=${encodeURIComponent(String(chave))}&txid=${encodeURIComponent(String(txid))}`;
+    const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=qr&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
     
     res.json({
       success: true,
