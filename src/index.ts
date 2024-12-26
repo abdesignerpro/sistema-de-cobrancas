@@ -405,7 +405,7 @@ app.get('/generate-pix-qr', async (req, res) => {
     const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=qr&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
     
     const response = await axios.get(qrCodeUrl, { responseType: 'arraybuffer' });
-    const base64Image = Buffer.from(response.data).toString('base64');
+    const base64Image = Buffer.from(response.data as ArrayBuffer).toString('base64');
     
     res.json({ 
       success: true, 
