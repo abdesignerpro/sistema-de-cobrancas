@@ -43,9 +43,10 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, apiConf
 // Função para verificar cobranças agendadas
 async function checkScheduledCharges() {
   try {
-    const today = new Date();
+    // Ajusta para o fuso horário de Brasília (UTC-3)
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     console.log('\n=== Verificando cobranças agendadas ===');
-    console.log('Data atual:', today.toLocaleString());
+    console.log('Data atual:', today.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
     // Busca configurações
     const configs = await Config.findAll();
@@ -68,8 +69,8 @@ async function checkScheduledCharges() {
     const currentHour = today.getHours();
     const currentMinute = today.getMinutes();
 
-    console.log('Horário configurado:', sendHour + ':' + sendMinute);
-    console.log('Horário atual:', currentHour + ':' + currentMinute);
+    console.log('Horário configurado:', sendTime);
+    console.log('Horário atual:', `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`);
 
     if (currentHour !== sendHour || currentMinute !== sendMinute) {
       console.log('Fora do horário de envio');
@@ -98,9 +99,9 @@ async function checkScheduledCharges() {
       const sendDate = new Date(nextDueDate);
       sendDate.setDate(sendDate.getDate() - daysBeforeDue);
 
-      console.log('Data de vencimento:', nextDueDate.toLocaleDateString());
-      console.log('Data de envio:', sendDate.toLocaleDateString());
-      console.log('Data atual:', today.toLocaleDateString());
+      console.log('Data de vencimento:', nextDueDate.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+      console.log('Data de envio:', sendDate.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+      console.log('Data atual:', today.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
       // Verifica se é dia de enviar
       if (
@@ -112,7 +113,7 @@ async function checkScheduledCharges() {
 
         // Verifica se já foi enviado hoje
         const lastBillingDate = charge.lastBillingDate ? new Date(charge.lastBillingDate) : null;
-        if (!lastBillingDate || lastBillingDate.toLocaleDateString() !== today.toLocaleDateString()) {
+        if (!lastBillingDate || lastBillingDate.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) !== today.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })) {
           try {
             // Formata a mensagem
             const messageTemplate = configObject.messageTemplate || '';
@@ -354,6 +355,8 @@ app.get('/pix/generate', async (req, res) => {
   try {
     const { nome, cidade, valor, chave, txid } = req.query as PixQueryParams;
     
+    console.log('Parâmetros recebidos:', { nome, cidade, valor, chave, txid });
+    
     if (!nome || !cidade || !valor || !chave || !txid) {
       return res.status(400).json({
         success: false,
@@ -362,27 +365,26 @@ app.get('/pix/generate', async (req, res) => {
     }
     
     // Busca o código PIX
-    const pixResponse = await axios.get(`https://gerarqrcodepix.com.br/api/v1`, {
-      params: {
-        nome,
-        cidade,
-        valor,
-        saida: 'br',
-        chave,
-        txid
-      }
-    });
+    const pixUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=br&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
+    console.log('URL do PIX:', pixUrl);
+    
+    const pixResponse = await axios.get(pixUrl);
+    console.log('Resposta do PIX:', pixResponse.data);
     
     // Busca o QR Code
     const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=qr&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
+    console.log('URL do QR Code:', qrCodeUrl);
     
     res.json({
       success: true,
       pixCode: pixResponse.data,
       qrCodeUrl
     });
-  } catch (error) {
-    console.error('Erro ao gerar PIX:', error);
+  } catch (error: any) {
+    console.error('Erro ao gerar PIX:', error.message);
+    if (error.response) {
+      console.error('Resposta de erro:', error.response.data);
+    }
     res.status(500).json({
       success: false,
       error: 'Erro ao gerar código PIX'
