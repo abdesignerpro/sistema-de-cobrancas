@@ -46,6 +46,35 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string, apiConf
   }
 }
 
+// Função para enviar mídia via WhatsApp
+async function sendWhatsAppMedia(phoneNumber: string, mediaUrl: string, caption: string, apiConfig: any) {
+  try {
+    const payload = {
+      number: phoneNumber,
+      mediatype: "image",
+      mimetype: "image/png",
+      caption: caption,
+      media: mediaUrl,
+      delay: 2,
+      apikey: apiConfig.apiKey,
+      fileName: ""
+    };
+
+    const response = await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiConfig.apiKey
+      }
+    });
+    
+    console.log('Mídia enviada com sucesso:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao enviar mídia:', error);
+    throw error;
+  }
+}
+
 // Função para verificar cobranças agendadas
 async function checkScheduledCharges() {
   try {
@@ -381,19 +410,10 @@ app.get('/pix/generate', async (req, res) => {
     const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(nome)}&cidade=${encodeURIComponent(cidade)}&valor=${valor}&saida=qr&chave=${encodeURIComponent(chave)}&txid=${encodeURIComponent(txid)}`;
     console.log('URL do QR Code:', qrCodeUrl);
     
-    // Busca a imagem do QR Code e converte para base64
-    const qrCodeResponse = await axios.get(qrCodeUrl, { responseType: 'arraybuffer' });
-    const base64Image = Buffer.from(qrCodeResponse.data as Buffer).toString('base64');
-    
-    // Tipagem da resposta do PIX
-    interface PixResponse {
-      brcode: string;
-    }
-    
     res.json({
       success: true,
-      pixCode: (pixResponse.data as PixResponse).brcode,
-      qrCodeUrl: `data:image/png;base64,${base64Image}`
+      pixCode: pixResponse.data,
+      qrCodeUrl
     });
   } catch (error: any) {
     console.error('Erro ao gerar PIX:', error.message);
