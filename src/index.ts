@@ -383,11 +383,16 @@ app.get('/pix/generate', async (req, res) => {
     
     // Busca a imagem do QR Code e converte para base64
     const qrCodeResponse = await axios.get(qrCodeUrl, { responseType: 'arraybuffer' });
-    const base64Image = Buffer.from(qrCodeResponse.data).toString('base64');
+    const base64Image = Buffer.from(qrCodeResponse.data as Buffer).toString('base64');
+    
+    // Tipagem da resposta do PIX
+    interface PixResponse {
+      brcode: string;
+    }
     
     res.json({
       success: true,
-      pixCode: pixResponse.data.brcode,
+      pixCode: (pixResponse.data as PixResponse).brcode,
       qrCodeUrl: `data:image/png;base64,${base64Image}`
     });
   } catch (error: any) {
